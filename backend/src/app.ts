@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import { env } from "./config/env";
+import { errorHandler } from "./middleware/errorHandler";
 
 const app = express();
 
@@ -22,5 +23,7 @@ app.use(cookieParser());
 const apiRouter = Router();
 
 app.use("/api/v1", apiRouter);
+
+app.use(errorHandler);
 
 export default app;
