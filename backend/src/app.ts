@@ -8,6 +8,10 @@ import { errorHandler } from "./middleware/errorHandler";
 import authRoutes from "./routes/authRoutes";
 import categoryRoutes from "./routes/categoryRoutes";
 import uploadRoutes from "./routes/uploadRoutes";
+import productRoutes from "./routes/productRoutes";
+import cartRoutes from "./routes/cartRoutes";
+import wishlistRoutes from "./routes/wishlistRoutes";
+import reviewRoutes from "./routes/reviewRoutes";
 
 const app = express();
 
@@ -28,6 +32,10 @@ const apiRouter = Router();
 apiRouter.use("/auth", authRoutes);
 apiRouter.use("/categories", categoryRoutes);
 apiRouter.use("/upload", uploadRoutes);
+apiRouter.use("/products", productRoutes);
+apiRouter.use("/products/:productId/reviews", reviewRoutes);
+apiRouter.use("/cart", cartRoutes);
+apiRouter.use("/wishlist", wishlistRoutes);
 
 app.use("/api/v1", apiRouter);
 
