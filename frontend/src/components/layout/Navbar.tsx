@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { getCart } from "@/lib/api/cart";
 import { useAuthStore } from "@/store/authStore";
+import { SearchBar } from "@/components/search/SearchBar";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -17,7 +17,6 @@ const navLinks = [
 export function Navbar() {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -47,17 +46,6 @@ export function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const query = searchQuery.trim();
-
-    if (!query) {
-      return;
-    }
-
-    router.push(`/search?q=${encodeURIComponent(query)}`);
-  };
-
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
@@ -83,22 +71,9 @@ export function Navbar() {
           ))}
         </nav>
 
-        <form
-          onSubmit={handleSearch}
-          className="hidden min-w-0 flex-1 items-center gap-2 sm:flex"
-        >
-          <Input
-            type="search"
-            placeholder="Search products..."
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            className="max-w-md"
-            aria-label="Search products"
-          />
-          <Button type="submit" size="sm" variant="secondary">
-            Search
-          </Button>
-        </form>
+        <Suspense fallback={<div className="hidden h-10 flex-1 max-w-md animate-pulse rounded-lg bg-zinc-200 sm:block" />}>
+          <SearchBar className="hidden sm:flex" inputClassName="max-w-md" />
+        </Suspense>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           {isAuthenticated ? (
@@ -185,15 +160,11 @@ export function Navbar() {
         </div>
       </div>
 
-      <form onSubmit={handleSearch} className="border-t border-zinc-100 px-4 py-2 sm:hidden">
-        <Input
-          type="search"
-          placeholder="Search products..."
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          aria-label="Search products"
-        />
-      </form>
+      <div className="border-t border-zinc-100 px-4 py-2 sm:hidden">
+        <Suspense fallback={<div className="h-10 animate-pulse rounded-lg bg-zinc-200" />}>
+          <SearchBar showButton={false} />
+        </Suspense>
+      </div>
     </header>
   );
 }
