@@ -12,6 +12,9 @@ import productRoutes from "./routes/productRoutes";
 import cartRoutes from "./routes/cartRoutes";
 import wishlistRoutes from "./routes/wishlistRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
+import orderRoutes from "./routes/orderRoutes";
+import adminRoutes from "./routes/adminRoutes";
+import { stripeWebhook } from "./controllers/orderController";
 
 const app = express();
 
@@ -23,6 +26,11 @@ app.use(
   }),
 );
 app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
+app.post(
+  "/api/v1/orders/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhook,
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -36,6 +44,8 @@ apiRouter.use("/products", productRoutes);
 apiRouter.use("/products/:productId/reviews", reviewRoutes);
 apiRouter.use("/cart", cartRoutes);
 apiRouter.use("/wishlist", wishlistRoutes);
+apiRouter.use("/orders", orderRoutes);
+apiRouter.use("/admin", adminRoutes);
 
 app.use("/api/v1", apiRouter);
 
