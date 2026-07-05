@@ -14,6 +14,7 @@ import wishlistRoutes from "./routes/wishlistRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
 import orderRoutes from "./routes/orderRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import searchRoutes from "./routes/searchRoutes";
 import { stripeWebhook } from "./controllers/orderController";
 
 const app = express();
@@ -46,6 +47,7 @@ apiRouter.use("/cart", cartRoutes);
 apiRouter.use("/wishlist", wishlistRoutes);
 apiRouter.use("/orders", orderRoutes);
 apiRouter.use("/admin", adminRoutes);
+apiRouter.use("/search", searchRoutes);
 
 app.use("/api/v1", apiRouter);
 
