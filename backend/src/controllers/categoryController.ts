@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Types } from "mongoose";
 import { Category, ICategory } from "../models/Category";
 import { Product } from "../models/Product";
 import { asyncHandler } from "../middleware/asyncHandler";
@@ -55,7 +56,7 @@ async function ensureUniqueNameAndSlug(
 async function validateParent(
   parentId: string | null | undefined,
   categoryId?: string,
-): Promise<string | null> {
+): Promise<Types.ObjectId | null> {
   if (!parentId) {
     return null;
   }
@@ -74,7 +75,7 @@ async function validateParent(
     });
   }
 
-  return parentId;
+  return new Types.ObjectId(parentId);
 }
 
 export const getCategories = asyncHandler(async (_req: Request, res: Response) => {
@@ -216,7 +217,7 @@ export const updateCategory = asyncHandler(async (req: Request, res: Response) =
 
   if (updates.parent !== undefined) {
     try {
-      category.parent = (await validateParent(updates.parent, categoryId)) as never;
+      category.parent = await validateParent(updates.parent, categoryId);
     } catch (error) {
       const err = error as Error & { statusCode?: number };
 

@@ -7,6 +7,7 @@ import {
   getMe,
 } from "../controllers/authController";
 import { protect } from "../middleware/auth";
+import { authLimiter } from "../middleware/rateLimit";
 import {
   registerSchema,
   loginSchema,
@@ -15,10 +16,10 @@ import {
 
 const router = Router();
 
-router.post("/register", validate(registerSchema), register);
-router.post("/login", validate(loginSchema), login);
+router.post("/register", authLimiter, validate(registerSchema), register);
+router.post("/login", authLimiter, validate(loginSchema), login);
 router.post("/logout", protect, logout);
-router.post("/refresh-token", refreshToken);
+router.post("/refresh-token", authLimiter, refreshToken);
 router.get("/me", protect, getMe);
 
 export default router;

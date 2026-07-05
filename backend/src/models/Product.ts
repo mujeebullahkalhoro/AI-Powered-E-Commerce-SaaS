@@ -20,6 +20,8 @@ export interface IProduct extends Document {
   embedding?: number[];
   averageRating: number;
   reviewCount: number;
+  reviewSummary?: string;
+  reviewSummaryUpdatedAt?: Date;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -99,6 +101,13 @@ const productSchema = new Schema<IProduct>(
       type: Number,
       default: 0,
       min: 0,
+    },
+    reviewSummary: {
+      type: String,
+      trim: true,
+    },
+    reviewSummaryUpdatedAt: {
+      type: Date,
     },
     isActive: {
       type: Boolean,

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
+import { env } from "../config/env";
 
 interface MongoDuplicateKeyError extends Error {
   code?: number;
@@ -61,6 +62,9 @@ export function errorHandler(
 
   res.status(500).json({
     success: false,
-    message: err.message || "Internal server error",
+    message:
+      env.NODE_ENV === "production"
+        ? "Internal Server Error"
+        : err.message || "Internal server error",
   });
 }

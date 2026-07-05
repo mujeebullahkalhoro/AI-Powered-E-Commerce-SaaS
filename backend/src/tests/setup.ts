@@ -1,0 +1,13 @@
+process.env.PORT = "5000";
+process.env.NODE_ENV = "test";
+process.env.MONGODB_URI = "mongodb://127.0.0.1:27017/test";
+process.env.JWT_ACCESS_SECRET = "test-access-secret";
+process.env.JWT_REFRESH_SECRET = "test-refresh-secret";
+process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
+process.env.CLOUDINARY_API_KEY = "test-key";
+process.env.CLOUDINARY_API_SECRET = "test-secret";
+process.env.STRIPE_SECRET_KEY = "sk_test_test";
+process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+process.env.GOOGLE_API_KEY = "test-google-key";
+process.env.GROQ_API_KEY = "test-groq-key";
+process.env.CLIENT_URL = "http://localhost:3000";

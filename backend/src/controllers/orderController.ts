@@ -8,6 +8,11 @@ import { asyncHandler } from "../middleware/asyncHandler";
 import { env } from "../config/env";
 import { stripe } from "../lib/stripe";
 import {
+  reserveStockForItems,
+  restoreStockForItems,
+  finalizeSoldCounts,
+} from "../lib/stockReservation";
+import {
   CreatePaymentIntentInput,
   getAllOrdersQuerySchema,
   getMyOrdersQuerySchema,
@@ -145,42 +150,111 @@ async function validateCartAndBuildSnapshot(
   };
 }
 
+function parseCartSnapshot(raw: string): CartSnapshot | null {
+  try {
+    return JSON.parse(raw) as CartSnapshot;
+  } catch {
+    return null;
+  }
+}
+
+async function fulfillPaidOrder(
+  paymentIntent: Stripe.PaymentIntent,
+  snapshot: CartSnapshot,
+  userId: string,
+  stockReserved: boolean,
+): Promise<void> {
+  const session = await mongoose.startSession();
+
+  try {
+    session.startTransaction();
+
+    if (!stockReserved) {
+      for (const item of snapshot.items) {
+        const product = await Product.findById(item.product).session(session);
+
+        if (!product || product.stock < item.quantity) {
+          throw new Error("INSUFFICIENT_STOCK");
+        }
+
+        product.stock -= item.quantity;
+        product.sold += item.quantity;
+        await product.save({ session });
+      }
+    } else {
+      await finalizeSoldCounts(snapshot.items, session);
+    }
+
+    await Order.create(
+      [
+        {
+          user: userId,
+          items: snapshot.items,
+          shippingAddress: snapshot.shippingAddress,
+          paymentMethod: snapshot.paymentMethod,
+          paymentStatus: "paid",
+          stripePaymentIntentId: paymentIntent.id,
+          orderStatus: "processing",
+          subtotal: snapshot.subtotal,
+          shippingCost: snapshot.shippingCost,
+          discount: snapshot.discount,
+          total: snapshot.total,
+        },
+      ],
+      { session },
+    );
+
+    const cart = await Cart.findOne({ user: userId }).session(session);
+
+    if (cart) {
+      cart.items = [];
+      await cart.save({ session });
+    }
+
+    await session.commitTransaction();
+  } catch (error) {
+    if (session.inTransaction()) {
+      await session.abortTransaction();
+    }
+
+    if (
+      stockReserved &&
+      error instanceof Error &&
+      error.message === "INSUFFICIENT_STOCK"
+    ) {
+      await restoreStockForItems(snapshot.items);
+    }
+
+    if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") {
+      await stripe.refunds.create({ payment_intent: paymentIntent.id });
+    }
+
+    throw error;
+  } finally {
+    session.endSession();
+  }
+}
+
 export const createPaymentIntent = asyncHandler(
   async (req: Request, res: Response) => {
     const { shippingAddress, paymentMethod } =
       req.body as CreatePaymentIntentInput;
 
     const session = await mongoose.startSession();
+    let snapshot: CartSnapshot | null = null;
 
     try {
       session.startTransaction();
 
-      const snapshot = await validateCartAndBuildSnapshot(
+      snapshot = await validateCartAndBuildSnapshot(
         req.user!.id,
         shippingAddress,
         paymentMethod,
         session,
       );
 
+      await reserveStockForItems(snapshot.items, session);
       await session.commitTransaction();
-
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(snapshot.total * 100),
-        currency: "usd",
-        metadata: {
-          userId: req.user!.id,
-          cartSnapshot: JSON.stringify(snapshot),
-        },
-        automatic_payment_methods: { enabled: true },
-      });
-
-      res.status(200).json({
-        success: true,
-        clientSecret: paymentIntent.client_secret,
-        subtotal: snapshot.subtotal,
-        shippingCost: snapshot.shippingCost,
-        total: snapshot.total,
-      });
     } catch (error) {
       if (session.inTransaction()) {
         await session.abortTransaction();
@@ -217,6 +291,30 @@ export const createPaymentIntent = asyncHandler(
     } finally {
       session.endSession();
     }
+
+    try {
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(snapshot!.total * 100),
+        currency: "usd",
+        metadata: {
+          userId: req.user!.id,
+          cartSnapshot: JSON.stringify(snapshot),
+          stockReserved: "true",
+        },
+        automatic_payment_methods: { enabled: true },
+      });
+
+      res.status(200).json({
+        success: true,
+        clientSecret: paymentIntent.client_secret,
+        subtotal: snapshot!.subtotal,
+        shippingCost: snapshot!.shippingCost,
+        total: snapshot!.total,
+      });
+    } catch (error) {
+      await restoreStockForItems(snapshot!.items);
+      throw error;
+    }
   },
 );
 
@@ -247,7 +345,11 @@ export const stripeWebhook = asyncHandler(async (req: Request, res: Response) =>
     return;
   }
 
-  if (event.type !== "payment_intent.succeeded") {
+  if (
+    event.type !== "payment_intent.succeeded" &&
+    event.type !== "payment_intent.canceled" &&
+    event.type !== "payment_intent.payment_failed"
+  ) {
     res.status(200).json({ received: true });
     return;
   }
@@ -255,6 +357,7 @@ export const stripeWebhook = asyncHandler(async (req: Request, res: Response) =>
   const paymentIntent = event.data.object as Stripe.PaymentIntent;
   const userId = paymentIntent.metadata.userId;
   const cartSnapshotRaw = paymentIntent.metadata.cartSnapshot;
+  const stockReserved = paymentIntent.metadata.stockReserved === "true";
 
   if (!userId || !cartSnapshotRaw) {
     res.status(400).json({
@@ -264,20 +367,9 @@ export const stripeWebhook = asyncHandler(async (req: Request, res: Response) =>
     return;
   }
 
-  const existingOrder = await Order.findOne({
-    stripePaymentIntentId: paymentIntent.id,
-  });
+  const snapshot = parseCartSnapshot(cartSnapshotRaw);
 
-  if (existingOrder) {
-    res.status(200).json({ received: true });
-    return;
-  }
-
-  let snapshot: CartSnapshot;
-
-  try {
-    snapshot = JSON.parse(cartSnapshotRaw) as CartSnapshot;
-  } catch {
+  if (!snapshot) {
     res.status(400).json({
       success: false,
       message: "Invalid cart snapshot in metadata",
@@ -285,71 +377,42 @@ export const stripeWebhook = asyncHandler(async (req: Request, res: Response) =>
     return;
   }
 
-  const session = await mongoose.startSession();
+  const existingOrder = await Order.findOne({
+    stripePaymentIntentId: paymentIntent.id,
+  });
+
+  if (
+    event.type === "payment_intent.canceled" ||
+    event.type === "payment_intent.payment_failed"
+  ) {
+    if (!existingOrder && stockReserved) {
+      await restoreStockForItems(snapshot.items);
+    }
+
+    res.status(200).json({ received: true });
+    return;
+  }
+
+  if (existingOrder) {
+    res.status(200).json({ received: true });
+    return;
+  }
 
   try {
-    session.startTransaction();
+    await fulfillPaidOrder(paymentIntent, snapshot, userId, stockReserved);
 
-    for (const item of snapshot.items) {
-      const product = await Product.findById(item.product).session(session);
-
-      if (!product || product.stock < item.quantity) {
-        throw new Error("INSUFFICIENT_STOCK");
-      }
-
-      product.stock -= item.quantity;
-      product.sold += item.quantity;
-      await product.save({ session });
-    }
-
-    const [order] = await Order.create(
-      [
-        {
-          user: userId,
-          items: snapshot.items,
-          shippingAddress: snapshot.shippingAddress,
-          paymentMethod: snapshot.paymentMethod,
-          paymentStatus: "paid",
-          stripePaymentIntentId: paymentIntent.id,
-          orderStatus: "processing",
-          subtotal: snapshot.subtotal,
-          shippingCost: snapshot.shippingCost,
-          discount: snapshot.discount,
-          total: snapshot.total,
-        },
-      ],
-      { session },
-    );
-
-    const cart = await Cart.findOne({ user: userId }).session(session);
-
-    if (cart) {
-      cart.items = [];
-      await cart.save({ session });
-    }
-
-    await session.commitTransaction();
-
-    res.status(200).json({
-      success: true,
-      orderId: order._id,
-    });
+    res.status(200).json({ received: true });
   } catch (error) {
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-
     if (error instanceof Error && error.message === "INSUFFICIENT_STOCK") {
-      res.status(409).json({
-        success: false,
-        message: "Insufficient stock to fulfill order",
+      res.status(200).json({
+        received: true,
+        refunded: true,
+        message: "Payment refunded due to insufficient stock",
       });
       return;
     }
 
     throw error;
-  } finally {
-    session.endSession();
   }
 });
 

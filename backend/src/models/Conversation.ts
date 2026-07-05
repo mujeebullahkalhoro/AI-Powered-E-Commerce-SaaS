@@ -11,6 +11,7 @@ export interface IConversationMessage {
 export interface IConversation extends Document {
   user: Types.ObjectId;
   messages: IConversationMessage[];
+  archivedMessages: IConversationMessage[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,9 +46,15 @@ const conversationSchema = new Schema<IConversation>(
       type: [conversationMessageSchema],
       default: [],
     },
+    archivedMessages: {
+      type: [conversationMessageSchema],
+      default: [],
+    },
   },
   { timestamps: true },
 );
+
+conversationSchema.index({ user: 1, updatedAt: -1 });
 
 export const Conversation = mongoose.model<IConversation>(
   "Conversation",

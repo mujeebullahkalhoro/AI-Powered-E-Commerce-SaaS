@@ -8,6 +8,7 @@ import {
   verifyRefreshToken,
 } from "../lib/jwt";
 import { env } from "../config/env";
+import { hashRefreshToken } from "../lib/refreshToken";
 import { RegisterInput, LoginInput } from "../lib/validations/auth";
 
 const REFRESH_TOKEN_COOKIE = "refreshToken";
@@ -66,7 +67,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
   const accessToken = generateAccessToken(user._id.toString(), user.role);
   const refreshToken = generateRefreshToken(user._id.toString());
 
-  user.refreshToken = refreshToken;
+  user.refreshToken = hashRefreshToken(refreshToken);
   await user.save();
 
   setRefreshTokenCookie(res, refreshToken);
@@ -104,7 +105,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   const accessToken = generateAccessToken(user._id.toString(), user.role);
   const refreshToken = generateRefreshToken(user._id.toString());
 
-  user.refreshToken = refreshToken;
+  user.refreshToken = hashRefreshToken(refreshToken);
   await user.save();
 
   setRefreshTokenCookie(res, refreshToken);
@@ -152,7 +153,7 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
     return;
   }
 
-  if (user.refreshToken !== token) {
+  if (user.refreshToken !== hashRefreshToken(token)) {
     res.status(401).json({
       success: false,
       message: "Invalid refresh token",
@@ -163,7 +164,7 @@ export const refreshToken = asyncHandler(async (req: Request, res: Response) => 
   const accessToken = generateAccessToken(user._id.toString(), user.role);
   const newRefreshToken = generateRefreshToken(user._id.toString());
 
-  user.refreshToken = newRefreshToken;
+  user.refreshToken = hashRefreshToken(newRefreshToken);
   await user.save();
 
   setRefreshTokenCookie(res, newRefreshToken);

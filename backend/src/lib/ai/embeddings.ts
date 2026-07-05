@@ -1,8 +1,8 @@
 import { env } from "../../config/env";
 
 export const EMBEDDING_DIMENSIONS = 768;
-const EMBEDDING_MODEL = "models/gemini-embedding-001";
-const EMBEDDING_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${env.GOOGLE_API_KEY}`;
+const EMBEDDING_MODEL = "models/text-embedding-004";
+const EMBEDDING_URL = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${env.GOOGLE_API_KEY}`;
 
 interface EmbedContentResponse {
   embedding?: {

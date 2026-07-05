@@ -15,11 +15,19 @@ import reviewRoutes from "./routes/reviewRoutes";
 import orderRoutes from "./routes/orderRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import searchRoutes from "./routes/searchRoutes";
+import aiRoutes from "./routes/aiRoutes";
+import chatRoutes from "./routes/chatRoutes";
+import healthRoutes from "./routes/healthRoutes";
 import { stripeWebhook } from "./controllers/orderController";
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: env.NODE_ENV === "production",
+    crossOriginEmbedderPolicy: false,
+  }),
+);
 app.use(
   cors({
     origin: env.CLIENT_URL,
@@ -32,8 +40,8 @@ app.post(
   express.raw({ type: "application/json" }),
   stripeWebhook,
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(cookieParser());
 
 const apiRouter = Router();
@@ -48,8 +56,11 @@ apiRouter.use("/wishlist", wishlistRoutes);
 apiRouter.use("/orders", orderRoutes);
 apiRouter.use("/admin", adminRoutes);
 apiRouter.use("/search", searchRoutes);
+apiRouter.use("/ai", aiRoutes);
+apiRouter.use("/chat", chatRoutes);
 
 app.use("/api/v1", apiRouter);
+app.use("/health", healthRoutes);
 
 app.use(errorHandler);
 

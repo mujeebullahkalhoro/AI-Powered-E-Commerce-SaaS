@@ -129,4 +129,7 @@ const orderSchema = new Schema<IOrder>(
   { timestamps: true },
 );
 
+orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ stripePaymentIntentId: 1 }, { unique: true, sparse: true });
+
 export const Order = mongoose.model<IOrder>("Order", orderSchema);

@@ -4,6 +4,7 @@ import { Product, IProduct } from "../models/Product";
 import { Category, ICategory } from "../models/Category";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { deleteImage } from "../lib/cloudinary";
+import { generateProductEmbedding } from "../lib/ai/embeddings";
 import {
   CreateProductInput,
   UpdateProductInput,
@@ -56,6 +57,38 @@ function getSortOption(sort: GetProductsQuery["sort"]): Record<string, SortOrder
     default:
       return { createdAt: -1 };
   }
+}
+
+function getCategoryName(product: IProduct): string {
+  if (
+    product.populated("category") &&
+    typeof product.category === "object" &&
+    product.category !== null &&
+    "name" in product.category
+  ) {
+    return (product.category as unknown as ICategory).name;
+  }
+
+  return "Unknown";
+}
+
+function scheduleProductEmbedding(product: IProduct): void {
+  const productId = product._id.toString();
+
+  generateProductEmbedding({
+    name: product.name,
+    description: product.description,
+    tags: product.tags,
+    category: getCategoryName(product),
+  })
+    .then((embedding) => Product.findByIdAndUpdate(productId, { embedding }))
+    .catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(
+        `Failed to generate embedding for product ${productId}:`,
+        message,
+      );
+    });
 }
 
 export const getProducts = asyncHandler(async (req: Request, res: Response) => {
@@ -188,6 +221,8 @@ export const createProduct = asyncHandler(async (req: Request, res: Response) =>
 
   await product.populate("category", "name slug");
 
+  scheduleProductEmbedding(product);
+
   res.status(201).json({
     success: true,
     product: formatProduct(product),
@@ -221,7 +256,7 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
       return;
     }
 
-    product.category = category._id as never;
+    product.category = category._id;
   }
 
   if (updates.name !== undefined) product.name = updates.name;
@@ -241,6 +276,16 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
 
   await product.save();
   await product.populate("category", "name slug");
+
+  const embeddingFieldsChanged =
+    updates.name !== undefined ||
+    updates.description !== undefined ||
+    updates.tags !== undefined ||
+    updates.category !== undefined;
+
+  if (embeddingFieldsChanged) {
+    scheduleProductEmbedding(product);
+  }
 
   res.status(200).json({
     success: true,

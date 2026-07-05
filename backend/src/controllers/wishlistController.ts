@@ -26,23 +26,41 @@ async function findOrCreateWishlist(userId: string) {
   return wishlist;
 }
 
+async function purgeInactiveProducts(wishlistId: Types.ObjectId): Promise<void> {
+  const inactiveProducts = await Product.find({ isActive: false })
+    .select("_id")
+    .lean();
+
+  if (inactiveProducts.length === 0) {
+    return;
+  }
+
+  const inactiveIds = inactiveProducts.map((product) => product._id);
+
+  await Wishlist.updateOne(
+    { _id: wishlistId },
+    { $pull: { products: { $in: inactiveIds } } },
+  );
+}
+
 export const getWishlist = asyncHandler(async (req: Request, res: Response) => {
-  let wishlist = await Wishlist.findOne({ user: req.user!.id }).populate({
+  let wishlist = await Wishlist.findOne({ user: req.user!.id });
+
+  if (!wishlist) {
+    wishlist = await Wishlist.create({ user: req.user!.id, products: [] });
+  } else {
+    await purgeInactiveProducts(wishlist._id);
+    wishlist = await Wishlist.findById(wishlist._id);
+  }
+
+  await wishlist!.populate({
     path: "products",
     select: PRODUCT_SELECT,
   });
 
-  if (!wishlist) {
-    wishlist = await Wishlist.create({ user: req.user!.id, products: [] });
-    await wishlist.populate({
-      path: "products",
-      select: PRODUCT_SELECT,
-    });
-  }
-
-  const products = (wishlist.products as unknown as IProduct[]).map(
-    formatWishlistProduct,
-  );
+  const products = (wishlist.products as unknown as IProduct[])
+    .filter((product) => product.isActive)
+    .map(formatWishlistProduct);
 
   res.status(200).json({
     success: true,
@@ -87,9 +105,9 @@ export const addToWishlist = asyncHandler(async (req: Request, res: Response) =>
     select: PRODUCT_SELECT,
   });
 
-  const products = (updatedWishlist!.products as unknown as IProduct[]).map(
-    formatWishlistProduct,
-  );
+  const products = (updatedWishlist!.products as unknown as IProduct[])
+    .filter((product) => product.isActive)
+    .map(formatWishlistProduct);
 
   res.status(200).json({
     success: true,
@@ -125,9 +143,9 @@ export const removeFromWishlist = asyncHandler(
       select: PRODUCT_SELECT,
     });
 
-    const products = (updatedWishlist!.products as unknown as IProduct[]).map(
-      formatWishlistProduct,
-    );
+    const products = (updatedWishlist!.products as unknown as IProduct[])
+      .filter((product) => product.isActive)
+      .map(formatWishlistProduct);
 
     res.status(200).json({
       success: true,

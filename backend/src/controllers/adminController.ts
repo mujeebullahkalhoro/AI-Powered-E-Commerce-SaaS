@@ -286,7 +286,10 @@ export const updateOrderStatus = asyncHandler(
 
 export const getInventoryReport = asyncHandler(
   async (_req: Request, res: Response) => {
-    const products = await Product.find({ stock: { $lt: LOW_STOCK_THRESHOLD } })
+    const products = await Product.find({
+      isActive: true,
+      stock: { $lt: LOW_STOCK_THRESHOLD },
+    })
       .select("name stock sold price isActive images")
       .populate("category", "name slug")
       .sort({ stock: 1 });

@@ -4,6 +4,7 @@ import { Review, IReview } from "../models/Review";
 import { Product } from "../models/Product";
 import { Order } from "../models/Order";
 import { asyncHandler } from "../middleware/asyncHandler";
+import { invalidateProductReviewSummary } from "../lib/reviewSummary";
 import {
   CreateReviewInput,
   UpdateReviewInput,
@@ -170,6 +171,7 @@ export const createReview = asyncHandler(async (req: Request, res: Response) => 
   });
 
   await recalculateProductRating(productId);
+  await invalidateProductReviewSummary(productId);
   await review.populate("user", "name");
 
   res.status(201).json({
@@ -215,6 +217,7 @@ export const updateReview = asyncHandler(async (req: Request, res: Response) => 
 
   await review.save();
   await recalculateProductRating(productId);
+  await invalidateProductReviewSummary(productId);
   await review.populate("user", "name");
 
   res.status(200).json({
@@ -258,6 +261,7 @@ export const deleteReview = asyncHandler(async (req: Request, res: Response) => 
 
   await review.deleteOne();
   await recalculateProductRating(productId);
+  await invalidateProductReviewSummary(productId);
 
   res.status(200).json({
     success: true,

@@ -14,7 +14,7 @@ interface EnvConfig {
   STRIPE_SECRET_KEY: string;
   STRIPE_WEBHOOK_SECRET: string;
   GOOGLE_API_KEY: string;
-  XAI_API_KEY: string;
+  GROQ_API_KEY: string;
   CLIENT_URL: string;
 }
 
@@ -30,7 +30,7 @@ const requiredVars = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
   "GOOGLE_API_KEY",
-  "XAI_API_KEY",
+  "GROQ_API_KEY",
   "CLIENT_URL",
 ] as const;
 
@@ -59,7 +59,7 @@ function loadEnv(): EnvConfig {
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY!,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET!,
     GOOGLE_API_KEY: process.env.GOOGLE_API_KEY!,
-    XAI_API_KEY: process.env.XAI_API_KEY!,
+    GROQ_API_KEY: process.env.GROQ_API_KEY!,
     CLIENT_URL: process.env.CLIENT_URL!,
   };
 }
