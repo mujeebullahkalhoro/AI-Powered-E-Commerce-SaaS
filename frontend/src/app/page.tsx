@@ -8,13 +8,27 @@ import { Button } from "@/components/ui/Button";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
+  let apiUnavailable = false;
+
   const [featuredData, categoriesData] = await Promise.all([
-    getFeaturedProducts(),
-    getCategories(),
+    getFeaturedProducts().catch(() => {
+      apiUnavailable = true;
+      return { success: true as const, count: 0, products: [] };
+    }),
+    getCategories().catch(() => {
+      apiUnavailable = true;
+      return { success: true as const, count: 0, categories: [] };
+    }),
   ]);
 
   return (
     <div>
+      {apiUnavailable ? (
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-sm text-amber-900">
+          Store data is temporarily unavailable. Make sure the backend is running on
+          port 5000, then refresh this page.
+        </div>
+      ) : null}
       <section className="relative overflow-hidden bg-zinc-900 text-white">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(139,92,246,0.35),_transparent_50%)]" />
         <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28">

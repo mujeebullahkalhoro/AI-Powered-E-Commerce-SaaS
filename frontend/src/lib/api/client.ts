@@ -1,6 +1,16 @@
 import type { ApiErrorBody } from "./types";
 
 const ACCESS_TOKEN_KEY = "accessToken";
+const ACCESS_TOKEN_COOKIE = "accessToken";
+const ACCESS_TOKEN_MAX_AGE = 15 * 60;
+
+function setAccessTokenCookie(token: string): void {
+  document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=${ACCESS_TOKEN_MAX_AGE}; samesite=strict`;
+}
+
+function clearAccessTokenCookie(): void {
+  document.cookie = `${ACCESS_TOKEN_COOKIE}=; path=/; max-age=0; samesite=strict`;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -21,7 +31,18 @@ function getBaseUrl(): string {
     throw new Error("NEXT_PUBLIC_API_URL is not defined");
   }
 
-  return baseUrl.replace(/\/$/, "");
+  let normalized = baseUrl.replace(/\/$/, "");
+
+  // Server-side fetch on Windows may resolve localhost to ::1 while the API
+  // only listens on IPv4 — use 127.0.0.1 to avoid intermittent ECONNREFUSED.
+  if (
+    typeof window === "undefined" &&
+    normalized.includes("://localhost")
+  ) {
+    normalized = normalized.replace("://localhost", "://127.0.0.1");
+  }
+
+  return normalized;
 }
 
 export function getAccessToken(): string | null {
@@ -38,6 +59,7 @@ export function setAccessToken(token: string): void {
   }
 
   localStorage.setItem(ACCESS_TOKEN_KEY, token);
+  setAccessTokenCookie(token);
 }
 
 export function clearAccessToken(): void {
@@ -46,6 +68,7 @@ export function clearAccessToken(): void {
   }
 
   localStorage.removeItem(ACCESS_TOKEN_KEY);
+  clearAccessTokenCookie();
 }
 
 function redirectToLogin(): void {

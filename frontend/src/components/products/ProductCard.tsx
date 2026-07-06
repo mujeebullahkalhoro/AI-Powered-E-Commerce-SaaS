@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { addToCart } from "@/lib/api/cart";
 import { ApiError } from "@/lib/api/client";
 import { addToWishlist } from "@/lib/api/wishlist";
@@ -15,9 +15,10 @@ import { RatingStars } from "./RatingStars";
 
 export interface ProductCardProps {
   product: Product;
+  footerActions?: ReactNode;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, footerActions }: ProductCardProps) {
   const router = useRouter();
   const [cartLoading, setCartLoading] = useState(false);
   const [wishlistLoading, setWishlistLoading] = useState(false);
@@ -94,15 +95,17 @@ export function ProductCard({ product }: ProductCardProps) {
               {product.name}
             </h3>
           </Link>
-          <button
-            type="button"
-            onClick={handleAddToWishlist}
-            disabled={wishlistLoading}
-            className="shrink-0 rounded-full p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-red-500 disabled:opacity-50"
-            aria-label="Add to wishlist"
-          >
-            <HeartIcon filled={false} />
-          </button>
+          {!footerActions ? (
+            <button
+              type="button"
+              onClick={handleAddToWishlist}
+              disabled={wishlistLoading}
+              className="shrink-0 rounded-full p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-red-500 disabled:opacity-50"
+              aria-label="Add to wishlist"
+            >
+              <HeartIcon filled={false} />
+            </button>
+          ) : null}
         </div>
 
         <div className="mb-3 flex items-center gap-2">
@@ -114,18 +117,26 @@ export function ProductCard({ product }: ProductCardProps) {
           {formatPrice(product.price)}
         </p>
 
-        <Button
-          size="sm"
-          className="mt-auto w-full"
-          onClick={handleAddToCart}
-          disabled={cartLoading || product.stock < 1}
-        >
-          {product.stock < 1 ? "Out of stock" : cartLoading ? "Adding..." : "Add to cart"}
-        </Button>
+        {footerActions ?? (
+          <>
+            <Button
+              size="sm"
+              className="mt-auto w-full"
+              onClick={handleAddToCart}
+              disabled={cartLoading || product.stock < 1}
+            >
+              {product.stock < 1
+                ? "Out of stock"
+                : cartLoading
+                  ? "Adding..."
+                  : "Add to cart"}
+            </Button>
 
-        {message ? (
-          <p className="mt-2 text-center text-xs text-zinc-500">{message}</p>
-        ) : null}
+            {message ? (
+              <p className="mt-2 text-center text-xs text-zinc-500">{message}</p>
+            ) : null}
+          </>
+        )}
       </div>
     </article>
   );
