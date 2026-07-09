@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
+import multer from "multer";
 import { asyncHandler } from "../middleware/asyncHandler";
-import { uploadImage, deleteImage } from "../lib/cloudinary";
+import { storeProductImage, removeProductImage } from "../lib/productImageStorage";
+import { MAX_FILE_SIZE } from "../lib/upload";
 
 export const uploadProductImages = asyncHandler(
   async (req: Request, res: Response) => {
@@ -15,7 +17,7 @@ export const uploadProductImages = asyncHandler(
     }
 
     const images = await Promise.all(
-      files.map((file) => uploadImage(file.buffer, "products")),
+      files.map((file) => storeProductImage(file.buffer, file.originalname)),
     );
 
     res.status(201).json({
@@ -38,7 +40,7 @@ export const deleteProductImage = asyncHandler(
       return;
     }
 
-    await deleteImage(publicId.trim());
+    await removeProductImage(publicId.trim());
 
     res.status(200).json({
       success: true,
@@ -57,9 +59,15 @@ export function handleMulterUpload(
   return (req: Request, res: Response, next: NextFunction): void => {
     middleware(req, res, (error) => {
       if (error) {
+        let message = error.message || "File upload failed";
+
+        if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+          message = `Each image must be ${MAX_FILE_SIZE / (1024 * 1024)} MB or smaller`;
+        }
+
         res.status(400).json({
           success: false,
-          message: error.message || "File upload failed",
+          message,
         });
         return;
       }

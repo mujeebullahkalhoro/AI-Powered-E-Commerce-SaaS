@@ -1,29 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
+import { getPostAuthPath } from "@/lib/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
 import { useAuthStore } from "@/store/authStore";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const resetSuccess = searchParams.get("reset") === "success";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [apiError, setApiError] = useState<string | null>(null);
 
+  const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isLoading = useAuthStore((state) => state.isLoading);
   const login = useAuthStore((state) => state.login);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.replace("/");
+    if (isAuthenticated && user) {
+      router.replace(getPostAuthPath(user));
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, user, router]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -31,7 +35,8 @@ export default function LoginPage() {
 
     try {
       await login({ email: email.trim(), password });
-      router.replace("/");
+      const currentUser = useAuthStore.getState().user;
+      router.replace(getPostAuthPath(currentUser));
     } catch (error) {
       if (error instanceof ApiError) {
         const detail = error.errors?.length
@@ -61,6 +66,12 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {resetSuccess ? (
+          <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+            Password updated successfully. Sign in with your new password.
+          </p>
+        ) : null}
+
         <Input
           label="Email"
           type="email"
@@ -82,6 +93,15 @@ export default function LoginPage() {
           onChange={(event) => setPassword(event.target.value)}
           disabled={isLoading}
         />
+
+        <div className="text-right">
+          <Link
+            href="/forgot-password"
+            className="text-sm font-medium text-zinc-700 underline-offset-4 hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
 
         {apiError ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
@@ -111,5 +131,30 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  if (isAuthenticated) {
+    return (
+      <div className="flex justify-center py-8">
+        <Spinner label="Redirecting" />
+      </div>
+    );
+  }
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-8">
+          <Spinner label="Loading sign in" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import { env } from "../config/env";
 import { UserRole } from "../models/User";
 
@@ -13,7 +13,7 @@ export interface RefreshTokenPayload {
 
 export function generateAccessToken(userId: string, role: UserRole): string {
   return jwt.sign({ userId, role }, env.JWT_ACCESS_SECRET, {
-    expiresIn: "15m",
+    expiresIn: env.JWT_ACCESS_EXPIRES_IN as SignOptions["expiresIn"],
   });
 }
 

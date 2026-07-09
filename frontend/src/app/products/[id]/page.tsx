@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { ApiError } from "@/lib/api/client";
 import { getProductById, getProducts } from "@/lib/api/products";
 import { getProductReviews } from "@/lib/api/reviews";
 import {
@@ -69,8 +70,14 @@ export default async function ProductDetailPage({
 
   try {
     productData = await getProductById(id);
-  } catch {
-    notFound();
+  } catch (error) {
+    // Only a genuine "product does not exist" (404) should render notFound().
+    // Transient backend errors (timeout, connection reset, 500) must not be
+    // masked as a permanent 404 — rethrow so Next shows a retryable error page.
+    if (error instanceof ApiError && error.status === 404) {
+      notFound();
+    }
+    throw error;
   }
 
   const { product } = productData;

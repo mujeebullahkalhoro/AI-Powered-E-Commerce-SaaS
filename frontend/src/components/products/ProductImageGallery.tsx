@@ -1,14 +1,14 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
-import type { ProductImage } from "@/lib/api/types";
+import type { ProductImage as ProductImageType } from "@/lib/api/types";
+import { ProductImage } from "./ProductImage";
 
 export function ProductImageGallery({
   images,
   productName,
 }: {
-  images: ProductImage[];
+  images: ProductImageType[];
   productName: string;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -25,11 +25,11 @@ export function ProductImageGallery({
   return (
     <div className="space-y-4">
       <div className="relative aspect-square overflow-hidden rounded-xl bg-zinc-100">
-        <Image
+        <ProductImage
           src={activeImage.url}
           alt={productName}
           fill
-          className="object-cover"
+          className="object-contain p-4"
           sizes="(max-width: 1024px) 100vw, 50vw"
           priority
         />
@@ -48,11 +48,11 @@ export function ProductImageGallery({
                   : "border-transparent ring-1 ring-zinc-200"
               }`}
             >
-              <Image
+              <ProductImage
                 src={image.url}
                 alt={`${productName} thumbnail ${index + 1}`}
                 fill
-                className="object-cover"
+                className="object-contain p-1"
                 sizes="80px"
               />
             </button>

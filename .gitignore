@@ -56,3 +56,6 @@ make-commit.bat
 rewrite-commit.bat
 *.tmp
 *.temp
+
+# Local dev uploads
+backend/uploads/

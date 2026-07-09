@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import { SortOrder } from "mongoose";
+import { SortOrder, Types } from "mongoose";
 import { Product, IProduct } from "../models/Product";
 import { Category, ICategory } from "../models/Category";
 import { asyncHandler } from "../middleware/asyncHandler";
-import { deleteImage } from "../lib/cloudinary";
+import { removeProductImage } from "../lib/productImageStorage";
 import { generateProductEmbedding } from "../lib/ai/embeddings";
 import {
   CreateProductInput,
@@ -293,6 +293,21 @@ export const updateProduct = asyncHandler(async (req: Request, res: Response) =>
   });
 });
 
+async function cleanupCategoryIfEmpty(categoryId: Types.ObjectId): Promise<boolean> {
+  const activeCount = await Product.countDocuments({
+    category: categoryId,
+    isActive: true,
+  });
+
+  if (activeCount > 0) {
+    return false;
+  }
+
+  await Product.deleteMany({ category: categoryId, isActive: false });
+  await Category.findByIdAndDelete(categoryId);
+  return true;
+}
+
 export const deleteProduct = asyncHandler(async (req: Request, res: Response) => {
   const product = await Product.findById(req.params.id);
 
@@ -306,15 +321,22 @@ export const deleteProduct = asyncHandler(async (req: Request, res: Response) =>
 
   if (product.images.length > 0) {
     await Promise.allSettled(
-      product.images.map((image) => deleteImage(image.publicId)),
+      product.images.map((image) => removeProductImage(image.publicId)),
     );
   }
 
   product.isActive = false;
   await product.save();
 
+  const categoryDeleted = await cleanupCategoryIfEmpty(
+    product.category as Types.ObjectId,
+  );
+
   res.status(200).json({
     success: true,
-    message: "Product deleted successfully",
+    message: categoryDeleted
+      ? "Product deleted and empty category removed"
+      : "Product deleted successfully",
+    categoryDeleted,
   });
 });

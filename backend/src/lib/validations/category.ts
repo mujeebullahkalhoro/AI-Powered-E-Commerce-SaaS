@@ -28,7 +28,7 @@ export const createCategorySchema = z.object({
     .toLowerCase()
     .optional(),
   description: z.string().trim().max(500).optional(),
-  image: categoryImageSchema.optional(),
+  image: categoryImageSchema.nullable().optional(),
   parent: objectIdSchema.nullable().optional(),
   isActive: z.boolean().optional(),
 });

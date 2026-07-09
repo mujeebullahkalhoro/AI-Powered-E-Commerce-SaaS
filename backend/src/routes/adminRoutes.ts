@@ -12,6 +12,8 @@ import {
   getAllOrders,
   updateOrderStatus,
   getInventoryReport,
+  getAdminProducts,
+  getAdminCategories,
 } from "../controllers/adminController";
 
 const router = Router();
@@ -19,6 +21,8 @@ const router = Router();
 router.use(protect, adminOnly);
 
 router.get("/dashboard", getDashboardStats);
+router.get("/products", getAdminProducts);
+router.get("/categories", getAdminCategories);
 router.get("/users", getAllUsers);
 router.patch("/users/:id/status", validate(updateUserStatusSchema), updateUserStatus);
 router.get("/orders", getAllOrders);

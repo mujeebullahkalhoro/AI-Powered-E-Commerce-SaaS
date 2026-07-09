@@ -33,6 +33,10 @@ interface MessageResponse {
   message: string;
 }
 
+interface ForgotPasswordResponse extends MessageResponse {
+  resetUrl?: string;
+}
+
 export async function login(
   credentials: LoginCredentials,
 ): Promise<AuthResponse> {
@@ -68,6 +72,29 @@ export async function getMe(): Promise<MeResponse> {
 export async function refreshToken(): Promise<RefreshResponse> {
   return apiRequest<RefreshResponse>("/auth/refresh-token", {
     method: "POST",
+    auth: false,
+    skipAuthRetry: true,
+  });
+}
+
+export async function forgotPassword(
+  email: string,
+): Promise<ForgotPasswordResponse> {
+  return apiRequest<ForgotPasswordResponse>("/auth/forgot-password", {
+    method: "POST",
+    body: { email },
+    auth: false,
+    skipAuthRetry: true,
+  });
+}
+
+export async function resetPassword(input: {
+  token: string;
+  password: string;
+}): Promise<MessageResponse> {
+  return apiRequest<MessageResponse>("/auth/reset-password", {
+    method: "POST",
+    body: input,
     auth: false,
     skipAuthRetry: true,
   });

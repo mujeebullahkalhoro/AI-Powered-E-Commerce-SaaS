@@ -2,7 +2,8 @@ import type { ApiErrorBody } from "./types";
 
 const ACCESS_TOKEN_KEY = "accessToken";
 const ACCESS_TOKEN_COOKIE = "accessToken";
-const ACCESS_TOKEN_MAX_AGE = 15 * 60;
+const ACCESS_TOKEN_MAX_AGE =
+  Number(process.env.NEXT_PUBLIC_ACCESS_TOKEN_MAX_AGE_SECONDS) || 2 * 60 * 60;
 
 function setAccessTokenCookie(token: string): void {
   document.cookie = `${ACCESS_TOKEN_COOKIE}=${encodeURIComponent(token)}; path=/; max-age=${ACCESS_TOKEN_MAX_AGE}; samesite=strict`;
@@ -24,7 +25,7 @@ export class ApiError extends Error {
   }
 }
 
-function getBaseUrl(): string {
+export function getBaseUrl(): string {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   if (!baseUrl) {
@@ -169,6 +170,68 @@ export async function apiRequest<T>(
 
     if (newToken) {
       return apiRequest<T>(path, options, true);
+    }
+
+    redirectToLogin();
+    throw new ApiError("Session expired. Please log in again.", 401);
+  }
+
+  const data = await parseResponseBody(response);
+
+  if (!response.ok) {
+    const errorBody = data as ApiErrorBody;
+    throw new ApiError(
+      errorBody.message ?? "Request failed",
+      response.status,
+      errorBody.errors,
+    );
+  }
+
+  return data as T;
+}
+
+export async function apiFormRequest<T>(
+  path: string,
+  formData: FormData,
+  options: Omit<RequestInit, "body"> = {},
+  isRetry = false,
+): Promise<T> {
+  const headers = new Headers(options.headers);
+  const token = getAccessToken();
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const url = path.startsWith("http") ? path : `${getBaseUrl()}${path}`;
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      ...options,
+      method: options.method ?? "POST",
+      credentials: "include",
+      headers,
+      body: formData,
+    });
+  } catch {
+    throw new ApiError(
+      "Could not reach the server. Make sure the backend is running on port 5000.",
+      0,
+    );
+  }
+
+  if (response.status === 401) {
+    if (isRetry) {
+      redirectToLogin();
+      throw new ApiError("Session expired. Please log in again.", 401);
+    }
+
+    const newToken = await refreshAccessToken();
+
+    if (newToken) {
+      return apiFormRequest<T>(path, formData, options, true);
     }
 
     redirectToLogin();

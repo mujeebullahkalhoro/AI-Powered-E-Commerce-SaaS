@@ -7,9 +7,21 @@ import {
   generateRefreshToken,
   verifyRefreshToken,
 } from "../lib/jwt";
-import { env } from "../config/env";
+import { env, isSmtpConfigured } from "../config/env";
 import { hashRefreshToken } from "../lib/refreshToken";
-import { RegisterInput, LoginInput } from "../lib/validations/auth";
+import {
+  buildPasswordResetUrl,
+  generatePasswordResetToken,
+  getPasswordResetExpiry,
+  hashPasswordResetToken,
+} from "../lib/passwordReset";
+import { sendPasswordResetEmail } from "../lib/email";
+import {
+  RegisterInput,
+  LoginInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
+} from "../lib/validations/auth";
 
 const REFRESH_TOKEN_COOKIE = "refreshToken";
 const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -189,5 +201,71 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     user: formatUser(user),
+  });
+});
+
+const PASSWORD_RESET_MESSAGE =
+  "If an account exists for that email, password reset instructions have been sent.";
+
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { email } = req.body as ForgotPasswordInput;
+
+  const user = await User.findOne({ email }).select(
+    "+passwordResetToken +passwordResetExpires",
+  );
+
+  if (user && user.isActive) {
+    const resetToken = generatePasswordResetToken();
+
+    user.passwordResetToken = hashPasswordResetToken(resetToken);
+    user.passwordResetExpires = getPasswordResetExpiry();
+    await user.save();
+
+    const resetUrl = buildPasswordResetUrl(resetToken);
+    await sendPasswordResetEmail(user.email, resetUrl);
+
+    res.status(200).json({
+      success: true,
+      message: PASSWORD_RESET_MESSAGE,
+      ...(env.NODE_ENV === "development" && !isSmtpConfigured()
+        ? { resetUrl }
+        : {}),
+    });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    message: PASSWORD_RESET_MESSAGE,
+  });
+});
+
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  const { token, password } = req.body as ResetPasswordInput;
+
+  const hashedToken = hashPasswordResetToken(token);
+
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: new Date() },
+  }).select("+password +passwordResetToken +passwordResetExpires +refreshToken");
+
+  if (!user || !user.isActive) {
+    res.status(400).json({
+      success: false,
+      message: "Invalid or expired reset link. Please request a new one.",
+    });
+    return;
+  }
+
+  user.password = await bcrypt.hash(password, 12);
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  user.refreshToken = undefined;
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Password updated successfully. You can sign in with your new password.",
   });
 });

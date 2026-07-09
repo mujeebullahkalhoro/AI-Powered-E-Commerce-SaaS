@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 import { connectDB } from "../config/database";
 import { Product } from "../models/Product";
+// Side-effect import registers the Category schema so populate("category") works
+// when this script runs standalone (the type-only import below is erased at build).
+import "../models/Category";
 import { ICategory } from "../models/Category";
 import { generateProductEmbedding } from "../lib/ai/embeddings";
 

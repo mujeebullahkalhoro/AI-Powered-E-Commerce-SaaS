@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
+import { Button } from "@/components/ui/Button";
 import { Spinner } from "@/components/ui/Spinner";
 
 const adminLinks = [
@@ -21,6 +22,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
   const accessToken = useAuthStore((state) => state.accessToken);
+  const logout = useAuthStore((state) => state.logout);
 
   useEffect(() => {
     if (isLoading) {
@@ -31,6 +33,11 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       router.replace("/");
     }
   }, [user, isLoading, router]);
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
   if (isLoading || (accessToken && !user)) {
     return (
@@ -45,37 +52,65 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:px-8">
-      <aside className="hidden w-56 shrink-0 md:block">
-        <div className="sticky top-24 rounded-xl border border-zinc-200 bg-white p-4">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Admin
-          </p>
-          <nav className="flex flex-col gap-1">
-            {adminLinks.map((link) => {
-              const isActive = link.exact
-                ? pathname === link.href
-                : pathname.startsWith(link.href);
+    <div className="min-h-[100dvh] bg-zinc-50">
+      <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <Link href="/admin" className="flex items-center gap-2">
+            <span className="text-lg font-bold text-zinc-900">ShopAI</span>
+            <span className="rounded-md bg-zinc-900 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
+              Admin
+            </span>
+          </Link>
 
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-zinc-900 text-white"
-                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link
+              href="/products"
+              className="text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900"
+            >
+              View store
+            </Link>
+            <span className="hidden text-sm text-zinc-500 sm:inline">
+              {user.name}
+            </span>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              Logout
+            </Button>
+          </div>
         </div>
-      </aside>
+      </header>
 
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row lg:gap-8 lg:px-8 lg:py-8">
+        <aside className="w-full shrink-0 lg:w-56">
+          <div className="lg:sticky lg:top-24 lg:rounded-xl lg:border lg:border-zinc-200 lg:bg-white lg:p-4">
+            <p className="mb-3 hidden text-xs font-semibold uppercase tracking-wide text-zinc-500 lg:block">
+              Menu
+            </p>
+            <nav className="-mx-1 flex gap-2 overflow-x-auto pb-1 lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0">
+              {adminLinks.map((link) => {
+                const isActive = link.exact
+                  ? pathname === link.href
+                  : pathname.startsWith(link.href);
+
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors lg:shrink ${
+                      isActive
+                        ? "bg-zinc-900 text-white"
+                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 lg:bg-transparent lg:hover:bg-zinc-100"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
     </div>
   );
 }

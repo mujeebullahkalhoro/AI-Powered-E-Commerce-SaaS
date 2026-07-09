@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { register } from "@/lib/api/auth";
 import { ApiError, setAccessToken } from "@/lib/api/client";
+import { getPostAuthPath } from "@/lib/auth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Spinner } from "@/components/ui/Spinner";
@@ -27,13 +28,14 @@ export default function RegisterPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.replace("/");
+    if (isAuthenticated && user) {
+      router.replace(getPostAuthPath(user));
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, user, router]);
 
   const validateForm = (): boolean => {
     const errors: FormErrors = {};
@@ -83,7 +85,7 @@ export default function RegisterPage() {
         isLoading: false,
       });
 
-      router.replace("/");
+      router.replace(getPostAuthPath(data.user));
     } catch (error) {
       if (error instanceof ApiError) {
         const detail = error.errors?.length

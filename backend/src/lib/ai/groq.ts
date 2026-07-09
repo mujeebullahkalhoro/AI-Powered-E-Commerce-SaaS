@@ -1,8 +1,9 @@
+// Groq API (https://api.groq.com/openai/v1)
+// Models: llama-3.3-70b-versatile (complex) / llama-3.1-8b-instant (fast)
+// Using OpenAI-compatible SDK with Groq baseURL
 import OpenAI from "openai";
 import { env } from "../../config/env";
 
-// Groq API (https://api.groq.com/openai/v1) — Llama models via Groq cloud
-// Model: llama-3.3-70b-versatile (complex tasks) / llama-3.1-8b-instant (fast)
 const groq = new OpenAI({
   baseURL: "https://api.groq.com/openai/v1",
   apiKey: env.GROQ_API_KEY,
@@ -24,6 +25,37 @@ interface SEOResult {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+const MAX_PRODUCT_DESCRIPTION_LINES = 5;
+const MAX_PRODUCT_DESCRIPTION_WORDS = 80;
+
+function enforceProductDescriptionLength(description: string): string {
+  const normalized = description
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return normalized;
+  }
+
+  const sentences = normalized.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [normalized];
+  const limitedByLines = sentences
+    .slice(0, MAX_PRODUCT_DESCRIPTION_LINES)
+    .join(" ")
+    .trim();
+
+  const words = limitedByLines.split(/\s+/);
+  if (words.length <= MAX_PRODUCT_DESCRIPTION_WORDS) {
+    return limitedByLines;
+  }
+
+  return `${words.slice(0, MAX_PRODUCT_DESCRIPTION_WORDS).join(" ").trim()}.`;
 }
 
 function extractResponseText(content: string | null | undefined): string {
@@ -78,12 +110,21 @@ export async function generateProductDescription(
   const attributeList =
     attributes.length > 0 ? attributes.join(", ") : "none specified";
 
-  return createGroqChatCompletion(
-    "You are a professional e-commerce copywriter.",
-    `Write a 2-3 paragraph product description for: ${name} in ${category} with these attributes: ${attributeList}`,
-    500,
+  const description = await createGroqChatCompletion(
+    "You are a professional e-commerce copywriter. Keep product copy short and scannable.",
+    `Write a product description for: ${name} in ${category} with these attributes: ${attributeList}.
+
+Strict rules:
+- Maximum 5 lines total
+- Maximum 80 words
+- One short paragraph only
+- No headings, bullet points, markdown, or line breaks
+- Return plain sentences only`,
+    120,
     QUALITY_MODEL,
   );
+
+  return enforceProductDescriptionLength(description);
 }
 
 export async function generateSEO(

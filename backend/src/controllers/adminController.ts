@@ -3,12 +3,15 @@ import { Types } from "mongoose";
 import { Order, OrderStatus } from "../models/Order";
 import { User, IUser } from "../models/User";
 import { Product } from "../models/Product";
+import { Category } from "../models/Category";
 import { asyncHandler } from "../middleware/asyncHandler";
 import {
   getAllUsersQuerySchema,
+  getAdminProductsQuerySchema,
   UpdateUserStatusInput,
   UpdateOrderStatusInput,
 } from "../lib/validations/admin";
+import { ICategory } from "../models/Category";
 import { getAllOrders as getAllOrdersFromOrderController } from "./orderController";
 
 const LOW_STOCK_THRESHOLD = 10;
@@ -280,6 +283,129 @@ export const updateOrderStatus = asyncHandler(
         orderStatus: order.orderStatus,
         updatedAt: order.updatedAt,
       },
+    });
+  },
+);
+
+function formatAdminProduct(product: {
+  _id: Types.ObjectId;
+  name: string;
+  description: string;
+  price: number;
+  comparePrice?: number;
+  images: { url: string; publicId: string }[];
+  category: unknown;
+  stock: number;
+  sold: number;
+  tags: string[];
+  seoTitle?: string;
+  metaDescription?: string;
+  averageRating: number;
+  reviewCount: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  const category =
+    typeof product.category === "object" &&
+    product.category !== null &&
+    "name" in product.category
+      ? (product.category as ICategory)
+      : undefined;
+
+  return {
+    id: product._id,
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    comparePrice: product.comparePrice,
+    images: product.images,
+    category: category
+      ? { id: category._id, name: category.name, slug: category.slug }
+      : product.category,
+    stock: product.stock,
+    sold: product.sold,
+    tags: product.tags,
+    seoTitle: product.seoTitle,
+    metaDescription: product.metaDescription,
+    averageRating: product.averageRating,
+    reviewCount: product.reviewCount,
+    isActive: product.isActive,
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt,
+  };
+}
+
+export const getAdminProducts = asyncHandler(
+  async (req: Request, res: Response) => {
+    const parsed = getAdminProductsQuerySchema.safeParse(req.query);
+
+    if (!parsed.success) {
+      res.status(400).json({
+        success: false,
+        message: "Invalid query parameters",
+        errors: parsed.error.issues.map((issue) => issue.message),
+      });
+      return;
+    }
+
+    const { page, limit, search, includeInactive } = parsed.data;
+    const skip = (page - 1) * limit;
+    const filter: Record<string, unknown> = {};
+
+    if (!includeInactive) {
+      filter.isActive = true;
+    }
+
+    if (search) {
+      filter.name = { $regex: search, $options: "i" };
+    }
+
+    const [products, total] = await Promise.all([
+      Product.find(filter)
+        .populate("category", "name slug")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Product.countDocuments(filter),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      products: products.map(formatAdminProduct),
+      total,
+      page,
+      pages: Math.ceil(total / limit) || 0,
+    });
+  },
+);
+
+export const getAdminCategories = asyncHandler(
+  async (_req: Request, res: Response) => {
+    const categories = await Category.find()
+      .populate("parent", "name")
+      .sort({ name: 1 });
+
+    res.status(200).json({
+      success: true,
+      count: categories.length,
+      categories: categories.map((category) => {
+        const parent = category.parent as ICategory | null | undefined;
+
+        return {
+          id: category._id,
+          name: category.name,
+          slug: category.slug,
+          description: category.description,
+          image: category.image,
+          parent: parent
+            ? { id: parent._id, name: parent.name }
+            : null,
+          isActive: category.isActive,
+          createdAt: category.createdAt,
+          updatedAt: category.updatedAt,
+        };
+      }),
     });
   },
 );

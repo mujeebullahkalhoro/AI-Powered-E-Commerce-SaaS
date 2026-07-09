@@ -140,7 +140,7 @@ export const createCategory = asyncHandler(async (req: Request, res: Response) =
       name,
       slug,
       description,
-      image,
+      image: image ?? undefined,
       parent: parentId,
       isActive: isActive ?? true,
     });
@@ -257,11 +257,12 @@ export const deleteCategory = asyncHandler(async (req: Request, res: Response) =
   if (activeProductCount > 0) {
     res.status(409).json({
       success: false,
-      message: "Cannot delete category with active products",
+      message: `Cannot delete category with ${activeProductCount} active product(s). Deactivate or delete those products first.`,
     });
     return;
   }
 
+  await Product.deleteMany({ category: category._id, isActive: false });
   await category.deleteOne();
 
   res.status(200).json({

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReactNode, useState } from "react";
@@ -11,6 +10,7 @@ import type { Product } from "@/lib/api/types";
 import { formatPrice, getProductImageUrl } from "@/lib/products";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/Button";
+import { ProductImage } from "./ProductImage";
 import { RatingStars } from "./RatingStars";
 
 export interface ProductCardProps {
@@ -74,11 +74,11 @@ export function ProductCard({ product, footerActions }: ProductCardProps) {
     <article className="group flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       <Link href={`/products/${product.id}`} className="relative aspect-square overflow-hidden bg-zinc-100">
         {imageUrl ? (
-          <Image
+          <ProductImage
             src={imageUrl}
             alt={product.name}
             fill
-            className="object-cover transition-transform group-hover:scale-105"
+            className="object-contain p-3"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
           />
         ) : (

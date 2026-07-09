@@ -1,8 +1,22 @@
 import { env } from "../../config/env";
 
 export const EMBEDDING_DIMENSIONS = 768;
-const EMBEDDING_MODEL = "models/text-embedding-004";
-const EMBEDDING_URL = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${env.GOOGLE_API_KEY}`;
+const EMBEDDING_MODEL = "models/gemini-embedding-001";
+const EMBEDDING_URL = `https://generativelanguage.googleapis.com/v1beta/${EMBEDDING_MODEL}:embedContent?key=${env.GOOGLE_API_KEY}`;
+
+// gemini-embedding-001 only returns pre-normalized vectors at 3072 dims.
+// At smaller dimensions (e.g. 768) we must L2-normalize for cosine similarity.
+function normalize(values: number[]): number[] {
+  const magnitude = Math.sqrt(
+    values.reduce((sum, value) => sum + value * value, 0),
+  );
+
+  if (magnitude === 0) {
+    return values;
+  }
+
+  return values.map((value) => value / magnitude);
+}
 
 interface EmbedContentResponse {
   embedding?: {
@@ -27,9 +41,9 @@ function buildProductEmbeddingText(product: ProductEmbeddingInput): string {
 }
 
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const trimmed = text.trim();
+  const inputText = text.trim();
 
-  if (!trimmed) {
+  if (!inputText) {
     throw new Error("Embedding generation failed: text must not be empty");
   }
 
@@ -41,7 +55,9 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: EMBEDDING_MODEL,
-        content: { parts: [{ text: trimmed }] },
+        content: {
+          parts: [{ text: inputText }],
+        },
         outputDimensionality: EMBEDDING_DIMENSIONS,
       }),
     });
@@ -76,7 +92,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     );
   }
 
-  return values;
+  return normalize(values);
 }
 
 export async function generateProductEmbedding(
@@ -85,4 +101,10 @@ export async function generateProductEmbedding(
   const text = buildProductEmbeddingText(product);
 
   return generateEmbedding(text);
+}
+
+if (require.main === module) {
+  generateEmbedding("test product blue cotton t-shirt")
+    .then((vec) => console.log("Length:", vec.length, "First 5:", vec.slice(0, 5)))
+    .catch(console.error);
 }

@@ -58,14 +58,14 @@ export const getWishlist = asyncHandler(async (req: Request, res: Response) => {
     select: PRODUCT_SELECT,
   });
 
-  const products = (wishlist.products as unknown as IProduct[])
+  const products = (wishlist!.products as unknown as IProduct[])
     .filter((product) => product.isActive)
     .map(formatWishlistProduct);
 
   res.status(200).json({
     success: true,
     wishlist: {
-      id: wishlist._id,
+      id: wishlist!._id,
       products,
       count: products.length,
     },
