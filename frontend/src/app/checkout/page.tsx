@@ -8,6 +8,7 @@ import { ApiError } from "@/lib/api/client";
 import { createPaymentIntent } from "@/lib/api/orders";
 import type { Cart, ShippingAddress } from "@/lib/api/types";
 import { useAuthStore } from "@/store/authStore";
+import { useCartStore } from "@/store/cartStore";
 import { CheckoutSummary } from "@/components/checkout/CheckoutSummary";
 import { ShippingForm, type ShippingFormValues } from "@/components/checkout/ShippingForm";
 import { StripePayment } from "@/components/checkout/StripePayment";
@@ -141,6 +142,7 @@ export default function CheckoutPage() {
   };
 
   const handlePaymentSuccess = () => {
+    useCartStore.getState().resetCart();
     router.push("/orders?success=1");
   };
 

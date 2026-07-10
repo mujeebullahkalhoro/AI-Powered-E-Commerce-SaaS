@@ -5,6 +5,7 @@ import { useState } from "react";
 import { addToCart } from "@/lib/api/cart";
 import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/store/authStore";
+import { useCartStore } from "@/store/cartStore";
 import { Button } from "@/components/ui/Button";
 
 export function AddToCartButton({
@@ -18,6 +19,7 @@ export function AddToCartButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const syncCart = useCartStore((state) => state.syncCart);
 
   const handleClick = async () => {
     if (!isAuthenticated) {
@@ -29,7 +31,8 @@ export function AddToCartButton({
     setError(null);
 
     try {
-      await addToCart(productId, 1);
+      const data = await addToCart(productId, 1);
+      syncCart(data.cart);
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not add to cart");

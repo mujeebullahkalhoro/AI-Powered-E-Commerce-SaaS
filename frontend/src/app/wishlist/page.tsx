@@ -11,6 +11,7 @@ import {
   removeFromWishlist,
 } from "@/lib/api/wishlist";
 import { useAuthStore } from "@/store/authStore";
+import { useCartStore } from "@/store/cartStore";
 import { ProductCard } from "@/components/products/ProductCard";
 import { ProductGrid } from "@/components/products/ProductGrid";
 import { Button } from "@/components/ui/Button";
@@ -107,7 +108,8 @@ export default function WishlistPage() {
     setError(null);
 
     try {
-      await addToCart(productId, 1);
+      const cartData = await addToCart(productId, 1);
+      useCartStore.getState().syncCart(cartData.cart);
       const data = await removeFromWishlist(productId);
       setProducts(data.wishlist.products);
       router.refresh();

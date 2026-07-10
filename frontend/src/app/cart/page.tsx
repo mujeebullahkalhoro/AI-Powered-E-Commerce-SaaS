@@ -11,6 +11,7 @@ import {
 import { ApiError } from "@/lib/api/client";
 import type { Cart } from "@/lib/api/types";
 import { useAuthStore } from "@/store/authStore";
+import { useCartStore } from "@/store/cartStore";
 import { CartItem } from "@/components/cart/CartItem";
 import { OrderSummary } from "@/components/cart/OrderSummary";
 import { Spinner } from "@/components/ui/Spinner";
@@ -18,6 +19,7 @@ import { Spinner } from "@/components/ui/Spinner";
 export default function CartPage() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const syncCart = useCartStore((state) => state.syncCart);
   const [hydrated, setHydrated] = useState(false);
 
   const [cart, setCart] = useState<Cart | null>(null);
@@ -36,12 +38,13 @@ export default function CartPage() {
     try {
       const data = await getCart();
       setCart(data.cart);
+      syncCart(data.cart);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load cart");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [syncCart]);
 
   useEffect(() => {
     const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
@@ -97,12 +100,15 @@ export default function CartPage() {
 
       const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
       const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-
-      return {
+      const nextCart = {
         ...current,
         items,
         totals: { subtotal, itemCount },
       };
+
+      useCartStore.getState().syncCart(nextCart);
+
+      return nextCart;
     });
   };
 
@@ -122,6 +128,7 @@ export default function CartPage() {
         try {
           const data = await updateCartItem(productId, quantity);
           setCart(data.cart);
+          syncCart(data.cart);
         } catch (err) {
           setError(
             err instanceof ApiError ? err.message : "Failed to update quantity",
@@ -151,6 +158,7 @@ export default function CartPage() {
     try {
       const data = await removeCartItem(productId);
       setCart(data.cart);
+      syncCart(data.cart);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to remove item");
     } finally {

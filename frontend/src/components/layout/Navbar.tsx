@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { getCart } from "@/lib/api/cart";
 import { isAdminUser } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
+import { useCartStore } from "@/store/cartStore";
 import { SearchBar } from "@/components/search/SearchBar";
 import { Button } from "@/components/ui/Button";
 
@@ -18,7 +18,6 @@ const navLinks = [
 export function Navbar() {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
-  const [cartCount, setCartCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -26,17 +25,18 @@ export function Navbar() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const logout = useAuthStore((state) => state.logout);
   const isAdmin = isAdminUser(user);
+  const cartCount = useCartStore((state) => state.itemCount);
+  const refreshCart = useCartStore((state) => state.refreshCart);
+  const resetCart = useCartStore((state) => state.resetCart);
 
   useEffect(() => {
     if (!isAuthenticated || isAdmin) {
-      setCartCount(0);
+      resetCart();
       return;
     }
 
-    getCart()
-      .then((data) => setCartCount(data.cart.totals.itemCount))
-      .catch(() => setCartCount(0));
-  }, [isAuthenticated, isAdmin]);
+    refreshCart();
+  }, [isAuthenticated, isAdmin, refreshCart, resetCart]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -52,6 +52,7 @@ export function Navbar() {
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
+    resetCart();
     router.push("/");
   };
 

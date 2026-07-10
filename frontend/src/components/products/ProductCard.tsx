@@ -9,6 +9,7 @@ import { addToWishlist } from "@/lib/api/wishlist";
 import type { Product } from "@/lib/api/types";
 import { formatPrice, getProductImageUrl } from "@/lib/products";
 import { useAuthStore } from "@/store/authStore";
+import { useCartStore } from "@/store/cartStore";
 import { Button } from "@/components/ui/Button";
 import { ProductImage } from "./ProductImage";
 import { RatingStars } from "./RatingStars";
@@ -25,6 +26,7 @@ export function ProductCard({ product, footerActions }: ProductCardProps) {
   const [message, setMessage] = useState<string | null>(null);
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const syncCart = useCartStore((state) => state.syncCart);
   const imageUrl = getProductImageUrl(product);
 
   const handleAddToCart = async () => {
@@ -37,7 +39,8 @@ export function ProductCard({ product, footerActions }: ProductCardProps) {
     setMessage(null);
 
     try {
-      await addToCart(product.id, 1);
+      const data = await addToCart(product.id, 1);
+      syncCart(data.cart);
       setMessage("Added to cart");
       router.refresh();
     } catch (error) {
